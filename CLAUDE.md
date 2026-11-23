@@ -12,6 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 테스트: `node --test tests/csv.test.mjs tests/github.test.mjs` (단일 테스트: `--test-name-pattern "왕복"`). 의존성 없음
   - 테스트는 HTML 안 스크립트를 주석 표식(`const KEY=...` ~ `// ---------- 저장`, `// ---------- 한글 CSV 저장/불러오기` ~ `// 아티팩트 downloads`, `// ---------- GitHub 동기화 (API)` ~ `// ---------- GitHub 동기화 (화면)`)으로 잘라 `vm`에서 평가하므로, 이 표식 주석을 바꾸면 테스트도 함께 수정해야 함
   - GitHub API 테스트는 가짜 `fetch`를 주입 (`ghGet`/`ghPut`의 마지막 인자)
+- 브라우저 E2E: `node tests/e2e.chrome.mjs` — Headless Chrome을 DevTools Protocol로 직접 구동(의존성 없음, `CHROME` 환경변수로 경로 지정). 폼 입력·CSV 저장/불러오기·GitHub 동기화 전 흐름 검증
+  - `confirm`은 자동 승인, 다운로드는 `a.click` 가로채기, GitHub API는 `localStorage('__mockgh')`에 상태를 두는 가짜 서버(새로고침 후에도 유지, 토큰 `test-token`·저장소 `me/DATA`만 허용)
+  - 페이지의 최상위 `let`/`const`(`S`, `gh`, `toCSV` 등)를 `Runtime.evaluate`로 직접 참조하므로 이름을 바꾸면 E2E도 수정
   - vm에서 나온 객체는 `plain()`(JSON 왕복)을 거쳐야 `deepStrictEqual` 비교가 됨
 - 배포: GitHub Pages (`main` 브랜치 루트). https://baekdoosanlee.github.io/MARATOHON_FULL_TRAINING/ — `index.html`은 대시보드로 리다이렉트만 함
 - Claude Artifact로도 게시되는 것을 전제로 작성됨 (`window.claude.use('downloads')` 사용, 미지원 환경에서는 Blob 다운로드로 폴백)
