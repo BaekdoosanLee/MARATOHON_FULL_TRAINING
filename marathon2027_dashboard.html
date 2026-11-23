@@ -93,7 +93,7 @@ svg text{fill:var(--sub);font-size:10px}
     </div>
     <div class="toolbar" style="margin-top:10px">
       <button id="saveBtn">💾 파일로 저장</button>
-      <label class="file btn ghost" style="font-weight:600">📂 파일 불러오기<input type="file" id="imp" accept=".json,application/json"></label>
+      <label class="file btn ghost" style="font-weight:600">📂 파일 불러오기<input type="file" id="imp" accept=".csv,text/csv,.json,application/json"></label>
       <button class="warn" id="reset">초기화</button>
     </div>
     <div class="sub" style="margin-top:8px">입력한 기록은 자동으로 이 브라우저에 저장됩니다. 파일로 저장하면 다른 기기에서도 불러올 수 있습니다.</div>
@@ -282,6 +282,70 @@ function save(){
 }
 function flash(id,text,ok){const el=$(id);el.textContent=text;el.className='msg '+(ok?'good':'bad')}
 
+// ---------- 한글 CSV 저장/불러오기 ----------
+const CSV_COLS=['구분','날짜','종류','총거리(km)','본운동거리(km)','시간','평균심박','RPE','워밍업거리(km)','워밍업시간(분)','워밍업심박','쿨다운거리(km)','쿨다운시간(분)','쿨다운심박','반복구성','목표페이스','대회명','메모'];
+const hms=sec=>{sec=Math.round(+sec||0);if(!sec)return '';return `${Math.floor(sec/3600)}:${pad(Math.floor(sec%3600/60))}:${pad(sec%60)}`};
+const csvCell=v=>{v=String(v??'');return /[",\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+const z=v=>v?v:'';
+function toCSV(st){
+  const rows=[CSV_COLS];
+  st.logs.forEach(l=>{
+    const wu=l.wu||{},cd=l.cd||{};
+    rows.push(['훈련',l.date,(TYPES[l.type]||[l.type])[0],z(l.km),z(mainKmOf(l)),hms(l.sec),z(l.hr),z(l.rpe),z(wu.km),z(wu.min),z(wu.hr),z(cd.km),z(cd.min),z(cd.hr),l.reps||'',l.target||'','',l.note||'']);
+  });
+  st.races.forEach(r=>{
+    rows.push(['대회기록',r.date,'대회',z(r.km),'',hms(r.sec),'','','','','','','','','','',r.name||'','']);
+  });
+  return '﻿'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n')+'\r\n';
+}
+function parseCSV(text){
+  text=String(text).replace(/^﻿/,'');
+  const rows=[];let row=[],cell='',q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){
+      if(c==='"'){if(text[i+1]==='"'){cell+='"';i++}else q=false}
+      else cell+=c;
+    }else if(c==='"')q=true;
+    else if(c===','){row.push(cell);cell=''}
+    else if(c==='\n'||c==='\r'){
+      if(c==='\r'&&text[i+1]==='\n')i++;
+      row.push(cell);rows.push(row);row=[];cell='';
+    }else cell+=c;
+  }
+  if(cell!==''||row.length){row.push(cell);rows.push(row)}
+  return rows.filter(r=>r.some(v=>v.trim()!==''));
+}
+function fromCSV(text){
+  const rows=parseCSV(text);
+  if(!rows.length)return null;
+  const head=rows[0].map(h=>h.trim());
+  const idx=Object.fromEntries(CSV_COLS.map(c=>[c,head.indexOf(c)]));
+  if(idx['구분']<0||idx['날짜']<0)return null;
+  const nameToType=Object.fromEntries(Object.entries(TYPES).map(([k,[n]])=>[n,k]));
+  const st={logs:[],races:[]},base=Date.now();
+  rows.slice(1).forEach((r,i)=>{
+    const g=c=>idx[c]>=0?String(r[idx[c]]??'').trim():'';
+    const num=c=>parseFloat(g(c))||0,int=c=>parseInt(g(c))||0;
+    const date=g('날짜');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error(`${i+2}행: 날짜 형식(YYYY-MM-DD)이 올바르지 않습니다`);
+    const sec=parseTime(g('시간'))||0;
+    if(g('구분')==='대회기록'){
+      st.races.push({id:base+i,date,name:g('대회명')||'대회',km:num('총거리(km)'),sec});
+      return;
+    }
+    const type=nameToType[g('종류')]||(TYPES[g('종류')]?g('종류'):'cross');
+    const log={id:base+i,date,type,km:num('총거리(km)'),mainKm:num('본운동거리(km)'),sec,hr:int('평균심박'),rpe:int('RPE'),note:g('메모')};
+    if(KEY_TYPES.includes(type)){
+      log.wu={km:num('워밍업거리(km)'),min:num('워밍업시간(분)'),hr:int('워밍업심박')};
+      log.cd={km:num('쿨다운거리(km)'),min:num('쿨다운시간(분)'),hr:int('쿨다운심박')};
+      log.reps=g('반복구성');log.target=g('목표페이스');
+    }
+    st.logs.push(log);
+  });
+  return st;
+}
+
 // 아티팩트 downloads 기능 (지원되지 않는 환경이면 일반 다운로드)
 function getCap(name){
   try{return window.claude&&window.claude.use?window.claude.use(name):Promise.resolve(null)}catch(e){return Promise.resolve(null)}
@@ -290,14 +354,14 @@ let downloadsCap=null;
 getCap('downloads').then(c=>{downloadsCap=c}).catch(()=>{});
 
 async function saveFile(){
-  const name=`marathon2027_${ymd(new Date())}.json`;
-  const text=JSON.stringify(S,null,2);
+  const name=`marathon2027_${ymd(new Date())}.csv`;
+  const text=toCSV(S);
   try{
     if(downloadsCap){
       await downloadsCap.save({filename:name,data:text});
       flash('msg','파일 저장 요청을 보냈습니다 (브라우저 확인 창을 확인하세요)',true);return;
     }
-    const b=new Blob([text],{type:'application/json'});
+    const b=new Blob([text],{type:'text/csv;charset=utf-8'});
     const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();
     flash('msg',`파일 저장: ${name}`,true);
   }catch(e){flash('msg','저장이 거부되었거나 실패했습니다. 다시 시도해 주세요',false)}
@@ -309,12 +373,14 @@ $('imp').addEventListener('change',e=>{
   const r=new FileReader();
   r.onload=()=>{
     try{
-      const d=normalize(JSON.parse(r.result));
-      if(!d)throw new Error();
-      if(!confirm(`기록 ${d.logs.length}건을 불러올까요? 현재 데이터는 덮어씁니다.`)){flash('msg','불러오기를 취소했습니다',false);return}
+      const txt=String(r.result).replace(/^﻿/,'');
+      // CSV 기본, 이전 JSON 백업도 호환
+      const d=txt.trim().startsWith('{')?normalize(JSON.parse(txt)):fromCSV(txt);
+      if(!d)throw new Error('올바른 백업 파일이 아닙니다 (첫 줄에 머리글 필요)');
+      if(!confirm(`훈련 ${d.logs.length}건 · 대회 ${d.races.length}건을 불러올까요? 현재 데이터는 덮어씁니다.`)){flash('msg','불러오기를 취소했습니다',false);e.target.value='';return}
       S=d;save();render();
-      flash('msg',`기록 ${d.logs.length}건을 불러왔습니다`,true);
-    }catch(err){flash('msg','올바른 백업 파일이 아닙니다',false)}
+      flash('msg',`훈련 ${d.logs.length}건 · 대회 ${d.races.length}건을 불러왔습니다`,true);
+    }catch(err){flash('msg',err&&err.message&&!(err instanceof SyntaxError)?err.message:'올바른 백업 파일이 아닙니다',false)}
     e.target.value='';
   };
   r.readAsText(file);
