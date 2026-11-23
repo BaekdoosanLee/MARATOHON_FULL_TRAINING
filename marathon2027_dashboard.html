@@ -100,6 +100,26 @@ svg text{fill:var(--sub);font-size:10px}
     <div id="msg" class="msg"></div>
   </div>
 
+  <div class="card">
+    <div class="toolbar">
+      <span class="sec-title" style="--c:var(--purple);font-weight:700">GitHub 자동 저장</span>
+      <span class="sub" id="ghState" style="margin-left:auto">연결 안 됨</span>
+    </div>
+    <form id="ghForm" style="margin-top:10px">
+      <label>데이터 저장소 (사용자명/저장소명)<input name="repo" placeholder="사용자명/MARATHON_TRAINING_DATA" autocomplete="off"></label>
+      <label>파일 경로<input name="path" value="training_log.csv" autocomplete="off"></label>
+      <label>브랜치<input name="branch" value="main" autocomplete="off"></label>
+      <label>토큰 (fine-grained PAT)<input name="token" type="password" autocomplete="off" placeholder="github_pat_…"></label>
+      <button type="submit">연결</button>
+    </form>
+    <div class="toolbar" style="margin-top:10px">
+      <button class="ghost" id="ghPullBtn" type="button">⬇ GitHub에서 불러오기</button>
+      <button class="ghost" id="ghPushBtn" type="button">⬆ GitHub에 저장(덮어쓰기)</button>
+      <button class="warn" id="ghOff" type="button">연결 해제</button>
+    </div>
+    <div class="sub" style="margin-top:8px">연결하면 기록을 추가·삭제할 때마다 GitHub 저장소의 CSV 파일에 자동 커밋되고, 페이지를 열 때 최신 기록을 불러옵니다. 토큰은 이 브라우저에만 저장됩니다.</div>
+  </div>
+
   <div class="grid4" id="kpis"></div>
 
   <div class="grid2">
@@ -276,9 +296,10 @@ function normalize(d){
 try{S=normalize(JSON.parse(localStorage.getItem(KEY)))}catch(e){S=null}
 if(!S)S={logs:[],races:[]};
 if(!S.races.length)S.races.push({id:1,date:'2026-11-15',name:'서울 MBN 마라톤 하프',km:21.0975,sec:6405});
-function save(){
+function save(sync=true){
   try{localStorage.setItem(KEY,JSON.stringify(S));$('saveState').textContent='자동 저장됨 · '+new Date().toLocaleTimeString('ko-KR')}
   catch(e){$('saveState').textContent='이 환경에서는 자동 저장이 지원되지 않습니다'}
+  if(sync)ghSchedule();
 }
 function flash(id,text,ok){const el=$(id);el.textContent=text;el.className='msg '+(ok?'good':'bad')}
 
@@ -390,6 +411,116 @@ $('reset').addEventListener('click',()=>{
   S={logs:[],races:[]};save();render();
   flash('msg','초기화했습니다',true);
 });
+
+// ---------- GitHub 동기화 (API) ----------
+const GH_API='https://api.github.com';
+function b64enc(str){
+  const b=new TextEncoder().encode(str);let s='';
+  for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));
+  return btoa(s);
+}
+function b64dec(b64){
+  const s=atob(String(b64).replace(/\s/g,''));const b=new Uint8Array(s.length);
+  for(let i=0;i<s.length;i++)b[i]=s.charCodeAt(i);
+  return new TextDecoder().decode(b);
+}
+const ghUrl=c=>`${GH_API}/repos/${c.repo}/contents/${c.path.split('/').map(encodeURIComponent).join('/')}`;
+const ghHeaders=c=>({Authorization:`Bearer ${c.token}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'});
+const ghErr=s=>s===401?'토큰이 올바르지 않거나 만료되었습니다':s===403?'토큰 권한이 부족합니다 (Contents 읽기/쓰기 필요)':s===404?'저장소를 찾을 수 없거나 토큰에 접근 권한이 없습니다':`GitHub 오류 (${s})`;
+// 파일 없음 → null, 있음 → {text, sha}
+async function ghGet(c,f=fetch){
+  const r=await f(`${ghUrl(c)}?ref=${encodeURIComponent(c.branch)}`,{headers:ghHeaders(c),cache:'no-store'});
+  if(r.status===404)return null;
+  if(!r.ok)throw new Error(ghErr(r.status));
+  const j=await r.json();
+  return{text:b64dec(j.content||''),sha:j.sha};
+}
+// 성공 → {sha}, 다른 곳에서 먼저 변경됨 → {conflict:true}
+async function ghPut(c,text,sha,f=fetch){
+  const body={message:`훈련 기록 업데이트 ${ymd(new Date())}`,content:b64enc(text),branch:c.branch};
+  if(sha)body.sha=sha;
+  const r=await f(ghUrl(c),{method:'PUT',headers:{...ghHeaders(c),'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.status===409||r.status===422)return{conflict:true};
+  if(!r.ok)throw new Error(ghErr(r.status));
+  const j=await r.json();
+  return{sha:j.content.sha};
+}
+
+// ---------- GitHub 동기화 (화면) ----------
+const GH_KEY='marathon2027_gh';
+let gh=null,ghTimer=null,ghBusy=false;
+try{gh=JSON.parse(localStorage.getItem(GH_KEY))}catch(e){gh=null}
+const ghReady=()=>!!(gh&&gh.repo&&gh.token);
+function saveGh(){try{gh?localStorage.setItem(GH_KEY,JSON.stringify(gh)):localStorage.removeItem(GH_KEY)}catch(e){}}
+function ghStatus(text,ok){const el=$('ghState');el.textContent=text;el.className='sub'+(ok===true?' ok':ok===false?' low':'')}
+const nowT=()=>new Date().toLocaleTimeString('ko-KR');
+function ghSchedule(){
+  if(!ghReady())return;
+  gh.dirty=true;saveGh();
+  clearTimeout(ghTimer);ghTimer=setTimeout(()=>ghPush(false),1500);
+  ghStatus('GitHub 저장 대기 중…');
+}
+async function ghPush(force){
+  if(!ghReady())return;
+  if(ghBusy){ghSchedule();return}
+  ghBusy=true;ghStatus('GitHub에 저장 중…');
+  try{
+    if(force){const cur=await ghGet(gh);gh.sha=cur?cur.sha:null}
+    const res=await ghPut(gh,toCSV(S),gh.sha);
+    if(res.conflict){ghStatus('⚠ 다른 기기에서 GitHub 기록이 바뀌었습니다. [GitHub에서 불러오기] 또는 [GitHub에 저장(덮어쓰기)]를 선택하세요',false);return}
+    gh.sha=res.sha;gh.dirty=false;saveGh();
+    ghStatus(`✔ GitHub 저장됨 · ${nowT()}`,true);
+  }catch(e){ghStatus(`✖ GitHub 저장 실패: ${e.message} (기록은 이 브라우저에 보관됨)`,false)}
+  finally{ghBusy=false}
+}
+// GitHub 기록으로 현재 데이터를 대체. 파일이 없으면 false
+async function ghPull(){
+  const cur=await ghGet(gh);
+  if(!cur)return false;
+  const d=cur.text.trim()?fromCSV(cur.text):{logs:[],races:[]};
+  if(!d)throw new Error('GitHub 파일이 올바른 CSV가 아닙니다');
+  S=d;gh.sha=cur.sha;gh.dirty=false;saveGh();save(false);render();
+  ghStatus(`✔ GitHub에서 불러옴 (훈련 ${S.logs.length}건 · 대회 ${S.races.length}건) · ${nowT()}`,true);
+  return true;
+}
+const ghForm=$('ghForm');
+function fillGhForm(){
+  if(!gh)return;
+  ghForm.repo.value=gh.repo||'';ghForm.path.value=gh.path||'training_log.csv';ghForm.branch.value=gh.branch||'main';
+  ghForm.token.value='';ghForm.token.placeholder=gh.token?'저장됨 (변경 시에만 입력)':'github_pat_…';
+}
+ghForm.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const f=e.target,repo=f.repo.value.trim().replace(/^https?:\/\/github\.com\//,'').replace(/\.git$|\/$/g,'');
+  const token=f.token.value.trim()||(gh&&gh.token);
+  if(!/^[\w.-]+\/[\w.-]+$/.test(repo)||!token){ghStatus('저장소(사용자명/저장소명)와 토큰을 입력하세요',false);return}
+  gh={repo,path:f.path.value.trim()||'training_log.csv',branch:f.branch.value.trim()||'main',token,sha:null,dirty:false};
+  saveGh();fillGhForm();ghStatus('GitHub 연결 확인 중…');
+  try{
+    const cur=await ghGet(gh);
+    if(cur&&confirm('GitHub에 저장된 기록이 있습니다. GitHub 기록으로 이 브라우저의 기록을 대체할까요?\n(취소하면 이 브라우저의 기록을 GitHub에 덮어씁니다)'))await ghPull();
+    else{gh.sha=cur?cur.sha:null;await ghPush(false)}
+  }catch(err){ghStatus(`✖ 연결 실패: ${err.message}`,false)}
+});
+$('ghPullBtn').addEventListener('click',async()=>{
+  if(!ghReady()){ghStatus('먼저 GitHub를 연결하세요',false);return}
+  if(!confirm('GitHub 기록으로 이 브라우저의 기록을 대체할까요?'))return;
+  try{if(!await ghPull())ghStatus('GitHub에 아직 기록 파일이 없습니다',false)}catch(e){ghStatus(`✖ 불러오기 실패: ${e.message}`,false)}
+});
+$('ghPushBtn').addEventListener('click',()=>{
+  if(!ghReady()){ghStatus('먼저 GitHub를 연결하세요',false);return}
+  if(confirm('이 브라우저의 기록으로 GitHub 파일을 덮어쓸까요?'))ghPush(true);
+});
+$('ghOff').addEventListener('click',()=>{
+  if(!confirm('GitHub 연결을 해제할까요? (저장된 토큰도 이 브라우저에서 삭제됩니다)'))return;
+  gh=null;saveGh();ghForm.reset();ghForm.token.placeholder='github_pat_…';ghStatus('연결 안 됨');
+});
+fillGhForm();
+if(ghReady()){
+  // 이전에 저장 못 한 변경이 있으면 먼저 올리고, 없으면 최신 기록을 받아 옴
+  if(gh.dirty)ghPush(false);
+  else ghPull().then(ok=>{if(!ok)ghPush(false)}).catch(e=>ghStatus(`✖ GitHub 불러오기 실패: ${e.message}`,false));
+}
 
 // ---------- 집계 ----------
 function weekStat(i){
