@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2027 풀코스 도전 훈련 대시보드 (v4)</title>
+<style>
+:root{--bg:#0b1118;--card:#161e28;--card2:#1c2633;--line:#2a3646;--txt:#e8eef5;--sub:#93a1b3;
+--green:#3fb950;--blue:#58a6ff;--purple:#bc8cff;--orange:#f0883e;--pink:#ff7b9c;--yellow:#e3b341;--teal:#39d0d8;--red:#f85149;--gray:#6e7b8b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,"Malgun Gothic","Segoe UI",sans-serif;font-size:14px;line-height:1.45}
+header{padding:20px 24px;background:linear-gradient(120deg,#1b2a44 0%,#1d1f3f 55%,#2a1c35 100%);border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+h1{font-size:21px;margin:0;letter-spacing:-.2px}
+h2{font-size:15px;margin:0 0 12px}
+h3{font-size:13px;margin:0 0 8px}
+.sub{color:var(--sub);font-size:12px}
+main{padding:18px 24px 40px;display:grid;gap:16px;max-width:1280px;margin:auto}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.kpi{border-left:4px solid var(--c,var(--blue))}
+.kpi .label{color:var(--sub);font-size:12px}
+.kpi .val{font-size:24px;font-weight:700;margin-top:4px;color:var(--c,var(--blue))}
+.kpi .hint{color:var(--sub);font-size:12px;margin-top:4px}
+.bar{height:10px;background:#0b1118;border-radius:5px;overflow:hidden;margin:8px 0 4px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--teal))}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 7px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{color:var(--sub);font-weight:600;background:var(--card2);position:sticky;top:0}
+td.num,th.num{text-align:right}
+tr.cur td{background:#1f3347}
+tr:hover td{background:#1b2633}
+.ok{color:var(--green);font-weight:600}.mid{color:var(--yellow);font-weight:600}.low{color:var(--red);font-weight:600}.off{color:var(--sub)}
+.tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;color:#0b1118;background:var(--c,var(--gray));white-space:nowrap}
+.phase{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;background:var(--card2);color:var(--teal);border:1px solid var(--line)}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:10px;align-items:end}
+fieldset{border:1px solid var(--line);border-radius:10px;padding:12px;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(140px,100%),1fr));gap:10px;grid-column:1/-1;background:var(--card2)}
+fieldset.hidden,.hidden{display:none!important}
+legend{color:var(--teal);font-size:12px;font-weight:700;padding:0 6px}
+label{display:flex;flex-direction:column;gap:4px;color:var(--sub);font-size:12px;min-width:0}
+input,select{background:var(--bg);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:14px;min-width:0;width:100%}
+input:focus,select:focus{outline:2px solid var(--blue);border-color:transparent}
+button,.btn{background:var(--green);color:#06210e;border:0;border-radius:8px;padding:9px 14px;font-weight:700;cursor:pointer;font-size:13px;display:inline-block}
+button.ghost,.btn.ghost{background:transparent;color:var(--blue);border:1px solid var(--blue)}
+button.warn{background:transparent;color:var(--red);border:1px solid var(--red)}
+button.del{background:transparent;color:var(--red);padding:2px 6px;font-weight:500}
+.legend span{margin-right:12px;color:var(--sub);font-size:12px}
+.chk{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(130px,100%),1fr));gap:8px}
+.chk div{border:1px solid var(--line);border-radius:10px;padding:10px;font-size:13px;background:var(--card2)}
+.plan-box{background:var(--bg);border-left:3px solid var(--teal);border-radius:8px;padding:10px;font-size:13px;line-height:1.6}
+.preview{color:var(--teal);font-size:13px;grid-column:1/-1;font-weight:600}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.file{position:relative;overflow:hidden;display:inline-block}
+.file input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.msg{min-height:18px;margin-top:8px;font-weight:600}
+.msg.good{color:var(--green)}.msg.bad{color:var(--red)}
+svg text{fill:var(--sub);font-size:10px}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.sec-title{display:flex;align-items:center;gap:8px}
+.sec-title::before{content:"";width:4px;height:16px;border-radius:2px;background:var(--c,var(--blue))}
+@media(max-width:600px){
+  header{padding:14px 14px}
+  h1{font-size:17px}
+  main{padding:10px}
+  .card{padding:12px}
+  .kpi .val{font-size:20px}
+  table{font-size:12px}
+  th,td{padding:6px 5px}
+  fieldset{grid-template-columns:1fr 1fr}
+  .grid2,.grid3{grid-template-columns:1fr}
+  #dday{font-size:20px!important}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>🏃 2027 풀코스 도전 훈련 대시보드</h1>
+    <div class="sub">목표 풀 3:20:00 · 하프 1:30:00 · 10K 40:00 | 도전일 2027.03.01 (월) | 시작 2026.11.23</div>
+  </div>
+  <div style="text-align:right">
+    <div id="dday" style="font-size:26px;font-weight:800;color:var(--orange)"></div>
+    <div class="sub" id="curw"></div>
+  </div>
+</header>
+
+<main>
+  <div class="card">
+    <div class="toolbar">
+      <span class="sec-title" style="--c:var(--teal);font-weight:700">데이터 저장 · 불러오기</span>
+      <span class="sub" id="saveState" style="margin-left:auto">자동 저장 켜짐</span>
+    </div>
+    <div class="toolbar" style="margin-top:10px">
+      <button id="saveBtn">💾 파일로 저장</button>
+      <label class="file btn ghost" style="font-weight:600">📂 파일 불러오기<input type="file" id="imp" accept=".json,application/json"></label>
+      <button class="warn" id="reset">초기화</button>
+    </div>
+    <div class="sub" style="margin-top:8px">입력한 기록은 자동으로 이 브라우저에 저장됩니다. 파일로 저장하면 다른 기기에서도 불러올 수 있습니다.</div>
+    <div id="msg" class="msg"></div>
+  </div>
+
+  <div class="grid4" id="kpis"></div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2 class="sec-title" style="--c:var(--purple)">이번 주 계획 세션</h2>
+      <div id="sessionPlan"></div>
+    </div>
+    <div class="card">
+      <h2 class="sec-title" style="--c:var(--green)">이번 주 세션 체크리스트</h2>
+      <div class="chk" id="checklist"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec-title" style="--c:var(--orange)">훈련 결과 입력</h2>
+    <form id="logForm">
+      <fieldset>
+        <legend>기본</legend>
+        <label>날짜<input type="date" name="date" required></label>
+        <label>종류<select name="type">
+          <option value="easy">이지런</option>
+          <option value="hill">언덕 인터벌</option>
+          <option value="interval">평지 인터벌</option>
+          <option value="fartlek">변속주</option>
+          <option value="tempo">템포</option>
+          <option value="mp">MP 구간</option>
+          <option value="long">롱런</option>
+          <option value="cross">기타</option>
+          <option value="race">대회</option>
+          <option value="rest">휴식</option>
+        </select></label>
+        <label>RPE (1~10)<input name="rpe" type="number" min="1" max="10"></label>
+        <label>메모<input name="note"></label>
+      </fieldset>
+
+      <fieldset id="wuBox" class="hidden" style="--x:0">
+        <legend>워밍업</legend>
+        <label>거리(km)<input name="wuKm" type="number" step="0.01" min="0"></label>
+        <label>시간(분)<input name="wuMin" type="number" step="1" min="0"></label>
+        <label>평균 심박<input name="wuHr" type="number" min="0"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>본운동</legend>
+        <label>거리(km)<input name="km" type="number" step="0.01" min="0" required></label>
+        <label>시간 (mm:ss / h:mm:ss)<input name="time" placeholder="45:30"></label>
+        <label>평균 심박<input name="hr" type="number" min="0"></label>
+        <label id="repsLabel" class="hidden">반복 구성<input name="reps" placeholder="60초×6, 회복 90초"></label>
+        <label id="targetLabel" class="hidden">목표 페이스 (mm:ss)<input name="target" placeholder="4:15"></label>
+      </fieldset>
+
+      <fieldset id="cdBox" class="hidden">
+        <legend>쿨다운</legend>
+        <label>거리(km)<input name="cdKm" type="number" step="0.01" min="0"></label>
+        <label>시간(분)<input name="cdMin" type="number" step="1" min="0"></label>
+        <label>평균 심박<input name="cdHr" type="number" min="0"></label>
+      </fieldset>
+
+      <div class="preview" id="preview"></div>
+      <button type="submit" style="grid-column:1/-1">✚ 기록 추가</button>
+    </form>
+    <div id="formMsg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec-title" style="--c:var(--pink)">포인트 세션 결과 (워밍업 · 본운동 · 쿨다운)</h2>
+    <div class="scroll" id="keyLogs"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec-title" style="--c:var(--blue)">주간 계획 vs 실적 (km)</h2>
+    <div id="barChart"></div>
+    <div class="legend"><span>▇ 계획</span><span style="color:var(--green)">▇ 90% 이상</span><span style="color:var(--yellow)">▇ 미달</span></div>
+  </div>
+
+  <div class="grid3">
+    <div class="card"><h3 style="color:var(--blue)">이지런 페이스 (낮을수록 빠름)</h3><div id="paceChart"></div></div>
+    <div class="card"><h3 style="color:var(--purple)">이지런 평균 심박</h3><div id="hrChart"></div></div>
+    <div class="card"><h3 style="color:var(--green)">본운동 페이스 (템포·인터벌·MP)</h3><div id="tempoChart"></div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card"><h2 class="sec-title" style="--c:var(--teal)">목표 달성 현황</h2><div class="grid3" id="gauges"></div></div>
+    <div class="card" id="pred"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec-title" style="--c:var(--yellow)">주간 계획표 (W1~W14 + 도전일)</h2>
+    <div class="scroll" id="plan"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec-title" style="--c:var(--gray)">일반 기록 목록</h2>
+    <div class="scroll" id="logsList"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec-title" style="--c:var(--orange)">대회 기록 입력 (예측용)</h2>
+    <form id="raceForm">
+      <label>날짜<input type="date" name="date" required></label>
+      <label>대회명<input name="name" placeholder="서울 MBN 마라톤"></label>
+      <label>거리<select name="km">
+        <option value="5">5K</option><option value="10">10K</option><option value="21.0975">하프</option><option value="42.195">풀</option>
+      </select></label>
+      <label>기록 (h:mm:ss)<input name="time" placeholder="1:46:45"></label>
+      <button type="submit">대회 기록 추가</button>
+    </form>
+    <div id="rmsg" class="msg"></div>
+    <div class="scroll" id="races" style="margin-top:8px"></div>
+  </div>
+</main>
+
+<script>
+const KEY='marathon2027_v2';
+const START=new Date(2026,10,23), RACE=new Date(2027,2,1), DAY=864e5;
+const PLAN_KM=[40,45,48,42,50,52,55,48,58,60,65,52,48,30];
+const PLAN_LONG=[12,14,15,13,16,17,18,15,20,22,26,18,16,10];
+const PHASE_IDX=i=>i<5?0:i<10?1:i<12?2:3;
+const PHASE_NAME=['1 기반','2 성장','3 특화','4 테이퍼'];
+const GOAL={d10:2400,dh:5400,df:12000};
+// 종류별 색상
+const TYPES={easy:['이지런','#3fb950'],hill:['언덕 인터벌','#f0883e'],interval:['평지 인터벌','#ff7b9c'],fartlek:['변속주','#e3b341'],tempo:['템포','#bc8cff'],mp:['MP 구간','#58a6ff'],long:['롱런','#39d0d8'],cross:['기타','#8b98a5'],race:['대회','#ff7b9c'],rest:['휴식','#6e7b8b']};
+const KEY_TYPES=['hill','interval','fartlek','tempo','mp','race'];
+const DEFAULT_TYPE={0:'easy',1:'rest',2:'hill',3:'easy',4:'tempo',5:'rest',6:'long'};
+const CHECK=[[2,'화',1],[3,'수',2],[4,'목',3],[6,'토',5],[0,'일',6]];
+const SESSION_PLAN=[
+  {2:'언덕 스트라이드 30초×6 (RPE 7~8)',3:'이지런 40~50분 (심박 150 이하)',4:'짧은 템포 15분 (4:45~4:55)',6:'이지 롱런',0:'이지 40~60분'},
+  {2:'언덕 인터벌 60초×6→8 (RPE 8, 심박 170~178)',3:'변속주 2분 빠르게(4:15~4:25)×6 + 2분 이지',4:'템포 20→30분 (4:41→4:35)',6:'이지 롱런',0:'이지 40~60분'},
+  {2:'평지 인터벌 1km×4~5 (3:55~4:00), 격주 언덕',3:'변속주 3분 빠르게(4:05~4:15)×5~6 + 1분 이지',4:'템포 30분 (4:35~4:40)',6:'롱런 + MP 구간 (4:44)',0:'이지 40~60분'},
+  {2:'스트라이드 only (대회 준비)',3:'이지런 30~40분',4:'템포 축소 20분',6:'롱런 감소',0:'이지 30분'}
+];
+const STD_WU='워밍업: 이지 10분 → 동적 스트레칭 5분 → 스트라이드 3~4×20초 (언덕은 진입 전 이지 2~3분 추가)';
+const STD_CD='쿨다운: 이지 8~10분 → 정적 스트레칭 5분 → 보행 1~2분';
+const pad=n=>String(n).padStart(2,'0');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $=id=>document.getElementById(id);
+const today0=()=>{const d=new Date();d.setHours(0,0,0,0);return d};
+const toDate=s=>{const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c)};
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const dayDiff=d=>Math.round((d-START)/DAY);
+const weekOf=d=>Math.floor(dayDiff(d)/7);
+const wkStart=i=>new Date(2026,10,23+i*7);
+const wkEnd=i=>new Date(2026,10,29+i*7);
+const fmtMD=d=>`${pad(d.getMonth()+1)}/${pad(d.getDate())}`;
+const r2=v=>Math.round(v*100)/100;
+const tag=t=>{const[n,c]=TYPES[t]||[t,'#8b98a5'];return `<span class="tag" style="--c:${c}">${esc(n)}</span>`};
+const kpi=(l,v,h,c)=>`<div class="card kpi" style="--c:${c}"><div class="label">${l}</div><div class="val">${v}</div><div class="hint">${h}</div></div>`;
+const cls=p=>p>=90?'ok':p>=70?'mid':'low';
+
+function parseTime(s){
+  if(!s)return NaN;
+  const p=String(s).trim().split(':').map(Number);
+  if(p.some(isNaN))return NaN;
+  if(p.length===1)return p[0]*60;
+  if(p.length===2)return p[0]*60+p[1];
+  if(p.length===3)return p[0]*3600+p[1]*60+p[2];
+  return NaN;
+}
+function fmtTime(sec){
+  sec=Math.round(sec);const h=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;
+  return h?`${h}:${pad(m)}:${pad(s)}`:`${m}:${pad(s)}`;
+}
+function fmtPace(sec,km){
+  if(!sec||!km)return '-';const p=Math.round(sec/km);return `${Math.floor(p/60)}:${pad(p%60)}`;
+}
+const mainKmOf=l=>+(l.mainKm??l.km)||0;
+
+// ---------- 저장 ----------
+let S=null;
+function normalize(d){
+  if(!d||!Array.isArray(d.logs))return null;
+  return{logs:d.logs,races:Array.isArray(d.races)?d.races:[]};
+}
+try{S=normalize(JSON.parse(localStorage.getItem(KEY)))}catch(e){S=null}
+if(!S)S={logs:[],races:[]};
+if(!S.races.length)S.races.push({id:1,date:'2026-11-15',name:'서울 MBN 마라톤 하프',km:21.0975,sec:6405});
+function save(){
+  try{localStorage.setItem(KEY,JSON.stringify(S));$('saveState').textContent='자동 저장됨 · '+new Date().toLocaleTimeString('ko-KR')}
+  catch(e){$('saveState').textContent='이 환경에서는 자동 저장이 지원되지 않습니다'}
+}
+function flash(id,text,ok){const el=$(id);el.textContent=text;el.className='msg '+(ok?'good':'bad')}
+
+// 아티팩트 downloads 기능 (지원되지 않는 환경이면 일반 다운로드)
+function getCap(name){
+  try{return window.claude&&window.claude.use?window.claude.use(name):Promise.resolve(null)}catch(e){return Promise.resolve(null)}
+}
+let downloadsCap=null;
+getCap('downloads').then(c=>{downloadsCap=c}).catch(()=>{});
+
+async function saveFile(){
+  const name=`marathon2027_${ymd(new Date())}.json`;
+  const text=JSON.stringify(S,null,2);
+  try{
+    if(downloadsCap){
+      await downloadsCap.save({filename:name,data:text});
+      flash('msg','파일 저장 요청을 보냈습니다 (브라우저 확인 창을 확인하세요)',true);return;
+    }
+    const b=new Blob([text],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();
+    flash('msg',`파일 저장: ${name}`,true);
+  }catch(e){flash('msg','저장이 거부되었거나 실패했습니다. 다시 시도해 주세요',false)}
+}
+$('saveBtn').addEventListener('click',saveFile);
+
+$('imp').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=normalize(JSON.parse(r.result));
+      if(!d)throw new Error();
+      if(!confirm(`기록 ${d.logs.length}건을 불러올까요? 현재 데이터는 덮어씁니다.`)){flash('msg','불러오기를 취소했습니다',false);return}
+      S=d;save();render();
+      flash('msg',`기록 ${d.logs.length}건을 불러왔습니다`,true);
+    }catch(err){flash('msg','올바른 백업 파일이 아닙니다',false)}
+    e.target.value='';
+  };
+  r.readAsText(file);
+});
+$('reset').addEventListener('click',()=>{
+  if(!confirm('모든 기록을 삭제할까요? 먼저 파일로 저장해 두는 것을 권장합니다.'))return;
+  S={logs:[],races:[]};save();render();
+  flash('msg','초기화했습니다',true);
+});
+
+// ---------- 집계 ----------
+function weekStat(i){
+  const L=S.logs.filter(l=>weekOf(toDate(l.date))===i);
+  const km=L.reduce((a,l)=>a+(+l.km||0),0);
+  const long=Math.max(0,...L.filter(l=>l.type==='long').map(l=>+l.km||0));
+  const sess=new Set(L.filter(l=>l.type!=='rest'&&l.km>0).map(l=>l.date)).size;
+  return{km,long,sess};
+}
+function predLast(){
+  const last=S.races[S.races.length-1];
+  if(!last)return null;
+  return{last,p10:last.sec*Math.pow(10/last.km,1.06),ph:last.sec*Math.pow(21.0975/last.km,1.06),pf:last.sec*Math.pow(42.195/last.km,1.06)};
+}
+
+// ---------- 입력 폼 ----------
+const logForm=$('logForm');
+const isKey=()=>KEY_TYPES.includes(logForm.type.value);
+const isRest=()=>logForm.type.value==='rest';
+function updateFormUI(){
+  const k=isKey();
+  $('wuBox').classList.toggle('hidden',!k);
+  $('cdBox').classList.toggle('hidden',!k);
+  $('repsLabel').classList.toggle('hidden',!k);
+  $('targetLabel').classList.toggle('hidden',!k);
+  logForm.km.closest('fieldset').classList.toggle('hidden',isRest());
+  updatePreview();
+}
+function updatePreview(){
+  if(isRest()){$('preview').textContent='휴식일은 거리·시간 없이 저장됩니다';return}
+  const n=k=>parseFloat(logForm[k].value)||0;
+  const main=n('km'),wu=isKey()?n('wuKm'):0,cd=isKey()?n('cdKm'):0;
+  const sec=parseTime(logForm.time.value);
+  const pace=main>0&&sec>0?fmtPace(sec,main)+'/km':'-';
+  $('preview').textContent=`총 거리 ${r2(main+wu+cd)}km (워밍업 ${r2(wu)} + 본운동 ${r2(main)} + 쿨다운 ${r2(cd)}) · 본운동 페이스 ${pace}`;
+}
+logForm.date.value=ymd(new Date());
+logForm.type.value=DEFAULT_TYPE[new Date().getDay()];
+logForm.date.addEventListener('change',()=>{
+  const d=toDate(logForm.date.value);
+  if(!isNaN(d))logForm.type.value=DEFAULT_TYPE[d.getDay()];
+  updateFormUI();
+});
+logForm.type.addEventListener('change',()=>{
+  if(isKey()){
+    if(!logForm.wuMin.value)logForm.wuMin.value=15;
+    if(!logForm.cdMin.value)logForm.cdMin.value=10;
+  }
+  updateFormUI();
+});
+logForm.addEventListener('input',updatePreview);
+logForm.addEventListener('submit',e=>{
+  e.preventDefault();
+  const f=e.target,type=f.type.value;
+  const n=k=>parseFloat(f[k].value)||0;
+  if(!f.date.value){flash('formMsg','날짜를 입력하세요',false);return}
+  if(type==='rest'){
+    S.logs.push({id:Date.now(),date:f.date.value,type,km:0,mainKm:0,sec:0,hr:0,rpe:0,note:f.note.value.trim()});
+  }else{
+    const main=n('km'),sec=parseTime(f.time.value);
+    if(!(main>0&&sec>0)){flash('formMsg','본운동 거리와 시간(예: 45:30 또는 1:20:00)을 입력하세요',false);return}
+    const k=KEY_TYPES.includes(type);
+    const wu=k?{km:n('wuKm'),min:n('wuMin'),hr:parseInt(f.wuHr.value)||0}:{km:0,min:0,hr:0};
+    const cd=k?{km:n('cdKm'),min:n('cdMin'),hr:parseInt(f.cdHr.value)||0}:{km:0,min:0,hr:0};
+    S.logs.push({id:Date.now(),date:f.date.value,type,km:r2(main+wu.km+cd.km),mainKm:main,sec,hr:parseInt(f.hr.value)||0,rpe:parseInt(f.rpe.value)||0,note:f.note.value.trim(),wu,cd,reps:k?f.reps.value.trim():'',target:k?f.target.value.trim():''});
+  }
+  save();
+  ['km','time','hr','wuKm','wuMin','wuHr','cdKm','cdMin','cdHr','reps','target','rpe','note'].forEach(c=>f[c].value='');
+  flash('formMsg','✔ 기록이 추가되었습니다',true);
+  updateFormUI();
+  render();
+});
+updateFormUI();
+
+// ---------- 차트 ----------
+function barSvg(cur){
+  const W=620,H=240,P={l:34,r:8,t:12,b:28},N=14;
+  const acts=PLAN_KM.map((_,i)=>weekStat(i).km);
+  const max=Math.max(70,...PLAN_KM,...acts)*1.1;
+  const bw=(W-P.l-P.r)/N;
+  const y=v=>P.t+(H-P.t-P.b)*(1-v/max);
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  for(let g=0;g<=max;g+=20)s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y(g)}" y2="${y(g)}" stroke="#2a3646"/><text x="${P.l-6}" y="${y(g)+3}" text-anchor="end">${g}</text>`;
+  for(let i=0;i<N;i++){
+    const x=P.l+i*bw,a=acts[i];
+    s+=`<rect x="${x+bw*.12}" y="${y(PLAN_KM[i])}" width="${bw*.36}" height="${y(0)-y(PLAN_KM[i])}" rx="2" fill="#3a4658"/>`;
+    if(a>0)s+=`<rect x="${x+bw*.5}" y="${y(a)}" width="${bw*.36}" height="${y(0)-y(a)}" rx="2" fill="${a>=PLAN_KM[i]*.9?'#3fb950':'#e3b341'}"/>`;
+    if(i%2===0||i===N-1)s+=`<text x="${x+bw/2}" y="${H-8}" text-anchor="middle">W${i+1}</text>`;
+  }
+  if(cur>=0&&cur<N){const x=P.l+cur*bw;s+=`<rect x="${x}" y="${P.t}" width="${bw}" height="${H-P.t-P.b}" fill="none" stroke="#58a6ff" stroke-dasharray="3 3"/>`}
+  return s+'</svg>';
+}
+function lineSvg(pts,color,fmt){
+  if(!pts.length)return '<div class="sub" style="padding:50px 0;text-align:center">기록이 쌓이면 추이가 표시됩니다</div>';
+  const W=420,H=180,P={l:56,r:10,t:10,b:24},x0=0,x1=97;
+  let y0=Math.min(...pts.map(p=>p.y)),y1=Math.max(...pts.map(p=>p.y));
+  if(y0===y1){y0-=1;y1+=1}
+  const m=(y1-y0)*.1;y0-=m;y1+=m;
+  const X=v=>P.l+(W-P.l-P.r)*(v-x0)/(x1-x0);
+  const Y=v=>P.t+(H-P.t-P.b)*(1-(v-y0)/(y1-y0));
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  s+=`<text x="4" y="${Y(y0)+3}">${fmt(y0)}</text><text x="4" y="${Y(y1)+3}">${fmt(y1)}</text>`;
+  for(let w=0;w<14;w+=4)s+=`<text x="${X(w*7)}" y="${H-6}" text-anchor="middle">W${w+1}</text>`;
+  s+=`<polyline fill="none" stroke="${color}" stroke-width="2.5" points="${pts.map(p=>X(p.x)+','+Y(p.y)).join(' ')}"/>`;
+  s+=pts.map(p=>`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="4" fill="${color}"><title>${fmt(p.y)}</title></circle>`).join('');
+  return s+'</svg>';
+}
+
+// ---------- 카드/표 ----------
+function gaugesHtml(){
+  const pr=predLast();
+  if(!pr)return '<div class="sub">대회 기록을 입력하면 예측이 표시됩니다</div>';
+  return [['10K',pr.p10,GOAL.d10,'var(--blue)'],['하프',pr.ph,GOAL.dh,'var(--purple)'],['풀',pr.pf,GOAL.df,'var(--orange)']].map(([n,p,g,c])=>{
+    const ratio=Math.min(1,g/p),diff=p-g,k=diff<=0?'ok':diff<=300?'mid':'low';
+    return `<div class="card" style="border-top:3px solid ${c}"><div class="label">${n} 목표 ${fmtTime(g)}</div><div style="font-size:20px;font-weight:700;margin-top:4px">예측 ${fmtTime(p)}</div><div class="bar"><i style="width:${Math.round(ratio*100)}%"></i></div><div class="${k}" style="font-size:12px">${diff<=0?'목표 달성 예측':'목표까지 '+fmtTime(diff)+' 단축 필요'}</div></div>`;
+  }).join('');
+}
+function predHtml(){
+  const pr=predLast();
+  let h='<h2 class="sec-title" style="--c:var(--teal)">기록 예측 (Riegel, 최근 대회 기준)</h2>';
+  if(!pr)return h+'<div class="sub">대회 기록을 입력하면 표시됩니다</div>';
+  const rows=[['10K',pr.p10,GOAL.d10],['하프',pr.ph,GOAL.dh],['풀',pr.pf,GOAL.df]].map(([n,p,g])=>{
+    const diff=p-g,c=diff<=0?'ok':diff<=300?'mid':'low';
+    return `<tr><td>${n}</td><td class="num">${fmtTime(g)}</td><td class="num">${fmtTime(p)}</td><td class="num ${c}">${diff<=0?'-':'+'}${fmtTime(Math.abs(diff))}</td></tr>`;
+  }).join('');
+  return h+`<div class="sub" style="margin-bottom:8px">기준: ${esc(pr.last.name)} ${fmtTime(pr.last.sec)} (${esc(pr.last.date)})</div>
+  <div class="scroll"><table><tr><th>종목</th><th class="num">목표</th><th class="num">예측</th><th class="num">차이 (+ = 느림)</th></tr>${rows}</table></div>`;
+}
+function sessionPlanHtml(cur){
+  if(cur<0||cur>13)return '<div class="sub">계획 기간 밖입니다</div>';
+  const pi=PHASE_IDX(cur),plan=SESSION_PLAN[pi];
+  const rows=CHECK.map(([dow,label])=>`<tr><td><b>${label}</b></td><td>${esc(plan[dow])}</td></tr>`).join('');
+  return `<div style="margin-bottom:8px"><span class="phase">W${cur+1} · ${PHASE_NAME[pi]}</span> <span class="sub">주간 ${PLAN_KM[cur]}km / 롱런 ${PLAN_LONG[cur]}km</span></div>
+  <div class="scroll"><table>${rows}</table></div>
+  <div class="plan-box" style="margin-top:10px">${STD_WU}<br>${STD_CD}</div>`;
+}
+function checklistHtml(cur){
+  if(cur<0||cur>13)return '<div class="sub">계획 기간 밖입니다</div>';
+  const today=today0();
+  return CHECK.map(([dow,label,off])=>{
+    const d=new Date(2026,10,23+cur*7+off),key=ymd(d);
+    const hit=S.logs.some(l=>l.date===key&&l.type!=='rest'&&(+l.km||0)>0);
+    const st=hit?'<span class="ok">✓ 완료</span>':d>today?'<span class="off">예정</span>':'<span class="low">미기록</span>';
+    return `<div><div><b>${label}</b> · ${fmtMD(d)}</div><div style="margin-top:4px">${st}</div></div>`;
+  }).join('');
+}
+function keyLogsHtml(){
+  const L=S.logs.filter(l=>KEY_TYPES.includes(l.type)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+  if(!L.length)return '<div class="sub">포인트 세션 기록이 없습니다. 언덕·인터벌·변속주·템포·MP 기록을 입력하세요.</div>';
+  const rows=L.map(l=>{
+    const mk=mainKmOf(l),pace=fmtPace(l.sec,mk);
+    let diffTxt='-',c='';
+    const tgt=parseTime(l.target);
+    if(tgt>0&&mk>0&&l.sec>0){const d=Math.round(l.sec/mk-tgt);diffTxt=(d>0?'+':'')+d+'초';c=Math.abs(d)<=5?'ok':Math.abs(d)<=10?'mid':'low'}
+    const wu=l.wu&&l.wu.km?`${r2(l.wu.km)}km / ${l.wu.min||0}분`:'-';
+    const cd=l.cd&&l.cd.km?`${r2(l.cd.km)}km / ${l.cd.min||0}분`:'-';
+    return `<tr><td>${l.date}</td><td>${tag(l.type)}</td><td>${wu}</td><td class="num">${r2(mk)}km</td><td class="num">${fmtTime(l.sec)}</td><td class="num"><b>${pace}</b></td><td class="num ${c}">${diffTxt}</td><td class="num">${l.hr||'-'}</td><td>${esc(l.reps)||'-'}</td><td>${cd}</td><td class="num">${r2(l.km)}km</td><td class="num">${l.rpe||'-'}</td><td>${esc(l.note)}</td><td><button class="del" onclick="delLog(${l.id})">삭제</button></td></tr>`;
+  }).join('');
+  return `<table><tr><th>날짜</th><th>종류</th><th>워밍업</th><th class="num">본운동</th><th class="num">시간</th><th class="num">페이스</th><th class="num">목표 대비</th><th class="num">심박</th><th>구성</th><th>쿨다운</th><th class="num">총 거리</th><th class="num">RPE</th><th>메모</th><th></th></tr>${rows}</table>`;
+}
+function logsHtml(){
+  const L=S.logs.filter(l=>!KEY_TYPES.includes(l.type));
+  if(!L.length)return '<div class="sub">일반 기록이 없습니다.</div>';
+  const rows=[...L].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id).map(l=>{
+    const wk=weekOf(toDate(l.date)),mk=mainKmOf(l);
+    return `<tr><td>${l.date}</td><td>${wk>=0&&wk<14?'W'+(wk+1):'-'}</td><td>${tag(l.type)}</td><td class="num">${mk?mk.toFixed(2):'-'}</td><td class="num">${l.sec?fmtTime(l.sec):'-'}</td><td class="num">${mk&&l.sec?fmtPace(l.sec,mk):'-'}</td><td class="num">${l.hr||'-'}</td><td class="num">${l.rpe||'-'}</td><td>${esc(l.note)}</td><td><button class="del" onclick="delLog(${l.id})">삭제</button></td></tr>`;
+  }).join('');
+  return `<table><tr><th>날짜</th><th>주차</th><th>종류</th><th class="num">km</th><th class="num">시간</th><th class="num">페이스/km</th><th class="num">심박</th><th class="num">RPE</th><th>메모</th><th></th></tr>${rows}</table>`;
+}
+function planHtml(cur){
+  let h='<table><tr><th>주차</th><th>기간</th><th>단계</th><th class="num">계획 km</th><th class="num">계획 롱런</th><th class="num">실적 km</th><th class="num">달성률</th></tr>';
+  for(let i=0;i<14;i++){
+    const w=weekStat(i),p=Math.round(w.km/PLAN_KM[i]*100);
+    h+=`<tr class="${i===cur?'cur':''}"><td><b>W${i+1}</b></td><td>${fmtMD(wkStart(i))}~${fmtMD(wkEnd(i))}</td><td><span class="phase">${PHASE_NAME[PHASE_IDX(i)]}</span></td><td class="num">${PLAN_KM[i]}</td><td class="num">${PLAN_LONG[i]}</td><td class="num">${w.km?w.km.toFixed(1):'-'}</td><td class="num ${w.km?cls(p):''}">${w.km?p+'%':'-'}</td></tr>`;
+  }
+  return h+`<tr class="${cur===14?'cur':''}"><td><b>도전일</b></td><td>03/01 (월)</td><td>-</td><td class="num">-</td><td class="num">42.2</td><td class="num">-</td><td class="num">-</td></tr></table>`;
+}
+function racesHtml(){
+  if(!S.races.length)return '';
+  const rows=[...S.races].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>`<tr><td>${esc(r.date)}</td><td>${esc(r.name)}</td><td class="num">${r.km}km</td><td class="num"><b>${fmtTime(r.sec)}</b></td><td><button class="del" onclick="delRace(${r.id})">삭제</button></td></tr>`).join('');
+  return `<table><tr><th>날짜</th><th>대회명</th><th class="num">거리</th><th class="num">기록</th><th></th></tr>${rows}</table>`;
+}
+
+function render(){
+  const t=today0();
+  const cur=weekOf(t);
+  const dday=Math.round((RACE-t)/DAY);
+  const i=Math.min(Math.max(cur,0),13);
+  $('dday').textContent=dday>0?`D-${dday}`:dday===0?'D-DAY':'도전일 지남';
+  $('curw').textContent=cur<0?'훈련 시작 전 (11/23 시작)':cur===14?'도전 주간':cur>14?'계획 기간 종료':`W${cur+1} · ${PHASE_NAME[PHASE_IDX(cur)]} 단계`;
+
+  const ws=weekStat(i);
+  const elapsed=cur<0?0:Math.min(cur+1,14);
+  let done=0;for(let k=0;k<elapsed;k++)done+=weekStat(k).sess;
+  const comp=elapsed?Math.round(done/(5*elapsed)*100):0;
+  const total=S.logs.reduce((a,l)=>a+(+l.km||0),0);
+  $('kpis').innerHTML=[
+    kpi('이번 주 거리',`${ws.km.toFixed(1)} km`,`계획 ${PLAN_KM[i]} km · 달성 ${Math.round(ws.km/PLAN_KM[i]*100)}%`,'var(--green)'),
+    kpi('이번 주 롱런',`${ws.long.toFixed(1)} km`,`계획 ${PLAN_LONG[i]} km`,'var(--teal)'),
+    kpi('훈련 준수율',`${comp}%`,`경과 ${elapsed}주 · ${done}회 / 목표 ${5*elapsed}회`,'var(--orange)'),
+    kpi('누적 거리',`${total.toFixed(1)} km`,`기록 ${S.logs.length}건`,'var(--purple)')
+  ].join('');
+
+  $('sessionPlan').innerHTML=sessionPlanHtml(cur);
+  $('checklist').innerHTML=checklistHtml(cur);
+  $('keyLogs').innerHTML=keyLogsHtml();
+  $('barChart').innerHTML=barSvg(cur);
+
+  const byType=arr=>S.logs.filter(l=>arr.includes(l.type)&&mainKmOf(l)>0&&l.sec>0).sort((a,b)=>a.date.localeCompare(b.date));
+  const easy=byType(['easy']);
+  $('paceChart').innerHTML=lineSvg(easy.map(l=>({x:dayDiff(toDate(l.date)),y:l.sec/mainKmOf(l)})),'#58a6ff',v=>fmtPace(v,1)+'/km');
+  $('hrChart').innerHTML=lineSvg(easy.filter(l=>l.hr>0).map(l=>({x:dayDiff(toDate(l.date)),y:+l.hr})),'#bc8cff',v=>Math.round(v)+' bpm');
+  $('tempoChart').innerHTML=lineSvg(byType(['tempo','interval','mp']).map(l=>({x:dayDiff(toDate(l.date)),y:l.sec/mainKmOf(l)})),'#3fb950',v=>fmtPace(v,1)+'/km');
+
+  $('gauges').innerHTML=gaugesHtml();
+  $('pred').innerHTML=predHtml();
+  $('plan').innerHTML=planHtml(cur);
+  $('logsList').innerHTML=logsHtml();
+  $('races').innerHTML=racesHtml();
+}
+
+window.delLog=id=>{S.logs=S.logs.filter(l=>String(l.id)!==String(id));save();render()};
+window.delRace=id=>{S.races=S.races.filter(r=>String(r.id)!==String(id));save();render()};
+
+const raceForm=$('raceForm');
+raceForm.date.value=ymd(new Date());
+raceForm.addEventListener('submit',e=>{
+  e.preventDefault();
+  const f=e.target,km=parseFloat(f.km.value),sec=parseTime(f.time.value);
+  if(!f.date.value||!(sec>0)){flash('rmsg','날짜와 기록(h:mm:ss)을 입력하세요',false);return}
+  S.races.push({id:Date.now(),date:f.date.value,name:f.name.value.trim()||'대회',km,sec});
+  save();f.name.value='';f.time.value='';
+  flash('rmsg','✔ 대회 기록이 추가되었습니다',true);
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
